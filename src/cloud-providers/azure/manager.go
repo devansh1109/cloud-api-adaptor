@@ -32,6 +32,7 @@ func (*Manager) ParseCmd(flags *flag.FlagSet) {
 	// Flags without environment variable support (pass empty string for envVarName)
 	reg.StringWithEnv(&azurecfg.Zone, "zone", "", "", "Zone")
 	reg.StringWithEnv(&azurecfg.SubnetID, "subnetid", "", "AZURE_SUBNET_ID", "Network Subnet Id", provider.Required())
+	reg.StringWithEnv(&azurecfg.SecondarySubnetID, "secondary-subnetid", "", "AZURE_SECONDARY_SUBNET_ID", "Secondary Network Subnet Id for external network access")
 	reg.StringWithEnv(&azurecfg.SecurityGroupID, "securitygroupid", "", "AZURE_NSG_ID", "Security Group Id")
 	reg.StringWithEnv(&azurecfg.ImageID, "imageid", "", "AZURE_IMAGE_ID", "Image Id", provider.Required())
 	reg.StringWithEnv(&azurecfg.SSHKeyPath, "ssh-key-path", "", "", "Path to SSH public key")

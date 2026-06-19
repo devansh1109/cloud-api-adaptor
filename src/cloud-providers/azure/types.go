@@ -50,6 +50,10 @@ type Config struct {
 	EnableSecureBoot bool
 	UsePublicIP      bool
 	RootVolumeSize   int
+	// SecondarySubnetID is the subnet for the secondary NIC (eth1) used for
+	// external connectivity when ExternalNetViaPodVM is enabled. If not set,
+	// falls back to SubnetID (may cause asymmetric routing - see issue #2276).
+	SecondarySubnetID string
 }
 
 func (c Config) Redact() Config {

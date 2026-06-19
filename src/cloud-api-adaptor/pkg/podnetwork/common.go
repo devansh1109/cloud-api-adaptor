@@ -141,9 +141,30 @@ func getInterfaceDetails(ns netops.Namespace, iface string) (
 		}
 	}
 
-	fmt.Printf("Interface %q IPv4 address %q and default route %v\n", iface, addrCIDR, defRoute)
+	logger.Printf("Interface %q IPv4 address %q and default route %v", iface, addrCIDR, defRoute)
 
 	return addrCIDR, defRoute, nil
+}
+
+func inferGatewayFromSubnet(addrCIDR netip.Prefix) (netip.Addr, error) {
+	if !addrCIDR.IsValid() {
+		return netip.Addr{}, fmt.Errorf("cannot infer gateway from invalid prefix")
+	}
+
+	addr := addrCIDR.Addr()
+	if !addr.Is4() {
+		return netip.Addr{}, fmt.Errorf("cannot infer gateway from non-IPv4 prefix %q", addrCIDR)
+	}
+
+	masked := addrCIDR.Masked().Addr().As4()
+	masked[3] = 1
+
+	gateway := netip.AddrFrom4(masked)
+	if !gateway.IsValid() {
+		return netip.Addr{}, fmt.Errorf("failed to infer gateway from prefix %q", addrCIDR)
+	}
+
+	return gateway, nil
 }
 
 func getSecondaryInterfaceDetails(ns netops.Namespace, primaryInterface string) (
@@ -173,21 +194,24 @@ func getSecondaryInterfaceDetails(ns netops.Namespace, primaryInterface string) 
 			return "", netip.Prefix{}, nil, err
 		}
 
-		// The first interface other than the primary having an IPv4 address and a default route
-		// or an IPv4 address in the same subnet as the primary interface with no default route
+		// The first interface other than the primary having an IPv4 address and:
+		//   1. its own default route, or
+		//   2. no default route but in the same subnet as the primary interface, or
+		//   3. no default route and in a different subnet, where a gateway can be inferred,
 		// is considered the secondary interface.
 
 		if !addr.IsValid() {
-			fmt.Printf("Skipping interface %q as it has no valid IPv4 address\n", link.Name())
+			logger.Printf("Skipping interface %q as it has no valid IPv4 address", link.Name())
 			continue
 		}
 
 		if route != nil {
-			fmt.Printf("Secondary interface %q found with IPv4 address %q and route %v\n", link.Name(), addr, route)
+			logger.Printf("Secondary interface %q found with IPv4 address %q and route %v", link.Name(), addr, route)
 			return link.Name(), addr, route, nil
 		}
 
-		fmt.Printf("Route is nil, checking if %q is in the same subnet as %q\n", addr, primaryInterface)
+		logger.Printf("Interface %q has IPv4 address %q but no default route; comparing subnet with primary interface %q (%q)",
+			link.Name(), addr, primaryInterface, priAddrCIDR)
 
 		if priAddrCIDR.Masked() == addr.Masked() {
 			secIface = link.Name()
@@ -195,12 +219,27 @@ func getSecondaryInterfaceDetails(ns netops.Namespace, primaryInterface string) 
 				Destination: defRoute.Destination,
 				Gateway:     defRoute.Gateway,
 				Device:      secIface,
-				// Change the Route.Device to the secondary interface
+				Priority:    defRoute.Priority,
 			}
-			fmt.Printf("Secondary interface %q found with IPv4 address %q and inferred route %v\n", link.Name(), addr, secRoute)
+			logger.Printf("Secondary interface %q found with IPv4 address %q and inferred same-subnet route %v", link.Name(), addr, secRoute)
 			return link.Name(), addr, secRoute, nil
 		}
 
+		inferredGateway, err := inferGatewayFromSubnet(addr)
+		if err != nil {
+			logger.Printf("Skipping interface %q: failed to infer gateway from prefix %q: %v", link.Name(), addr, err)
+			continue
+		}
+
+		secIface = link.Name()
+		secRoute = &netops.Route{
+			Destination: defRoute.Destination,
+			Gateway:     inferredGateway,
+			Device:      secIface,
+			Priority:    0,
+		}
+		logger.Printf("Secondary interface %q found with IPv4 address %q and inferred cross-subnet route %v", link.Name(), addr, secRoute)
+		return link.Name(), addr, secRoute, nil
 	}
 
 	return "", netip.Prefix{}, nil, ErrNoSecondaryInterface
@@ -255,25 +294,44 @@ func moveInterfaceToNamespace(srcNs, dstNs netops.Namespace, iface string, addrC
 		return fmt.Errorf("failed to bring up link %q: %w", iface, err)
 	}
 
-	// Get existing default route in the new namespace
+	// Get existing default routes in the destination namespace
+	logger.Printf("Getting existing default routes in destination namespace %q", dstNs.Path())
 	defRoutes, err := dstNs.GetDefaultRoutes()
 	if err != nil {
-		return fmt.Errorf("failed to get default route in namespace %q: %w", dstNs.Path(), err)
+		return fmt.Errorf("failed to get default routes in namespace %q: %w", dstNs.Path(), err)
 	}
+	logger.Printf("Found %d existing default routes", len(defRoutes))
 
-	// Delete existing default route in the new namespace
-	for _, r := range defRoutes {
+	// Update existing default routes to lower priority (higher metric)
+	for i, r := range defRoutes {
+		logger.Printf("Processing existing route %d: %v (priority=%d)", i+1, r, r.Priority)
+		if r.Priority != 0 {
+			logger.Printf("Skipping route %d - already has priority %d", i+1, r.Priority)
+			continue
+		}
+
+		logger.Printf("Deleting old route %d to update priority", i+1)
 		err = dstNs.RouteDel(r)
 		if err != nil {
 			return fmt.Errorf("failed to delete default route %v in namespace %q: %w", r, dstNs.Path(), err)
 		}
+
+		r.Priority = 100
+		logger.Printf("Re-adding route %d with priority 100", i+1)
+		err = dstNs.RouteAdd(r)
+		if err != nil {
+			return fmt.Errorf("failed to re-add default route %v with priority in namespace %q: %w", r, dstNs.Path(), err)
+		}
+		logger.Printf("Updated existing default route to priority 100: %v", r)
 	}
 
-	// Set the default route for the network interface in the new namespace
+	// Add the new default route for the secondary interface with highest priority
+	logger.Printf("Adding new default route for secondary interface with priority 0: %v", defRoute)
 	err = dstNs.RouteAdd(defRoute)
 	if err != nil {
 		return fmt.Errorf("failed to set route %v for link %q: %w", defRoute, iface, err)
 	}
+	logger.Printf("Successfully added secondary interface default route with priority 0")
 
 	return nil
 }

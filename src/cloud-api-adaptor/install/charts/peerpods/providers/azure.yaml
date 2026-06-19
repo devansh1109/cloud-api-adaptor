@@ -34,6 +34,10 @@ providerConfigs:
     # (required)
     AZURE_SUBNET_ID: ""
 
+    # Secondary Network Subnet Id for external network access
+    # (default: "")
+    # AZURE_SECONDARY_SUBNET_ID: ""
+
     # Subscription ID
     # (required)
     AZURE_SUBSCRIPTION_ID: ""

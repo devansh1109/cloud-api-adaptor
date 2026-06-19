@@ -196,14 +196,27 @@ func (n *workerNode) Inspect(nsPath string) (*tunneler.Config, error) {
 				logger.Printf("failed to parse CIDR %q: %s", cidr, err)
 				continue
 			}
-			route := &tunneler.Route{
-				Dst: prefix,
-				GW:  gatewayAddr,
-				Dev: podInterface,
+			
+			// Check if route already exists
+			exists := false
+			for _, existingRoute := range config.Routes {
+				if existingRoute.Dst == prefix {
+					exists = true
+					break
+				}
 			}
-			config.Routes = append(config.Routes, route)
+			
+			if !exists {
+				route := &tunneler.Route{
+					Dst: prefix,
+					GW:  gatewayAddr,
+					Dev: podInterface,
+				}
+				config.Routes = append(config.Routes, route)
+			}
 		}
 	}
+
 
 	for _, neighbor := range neighbors {
 		n := &tunneler.Neighbor{
