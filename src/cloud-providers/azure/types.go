@@ -54,6 +54,10 @@ type Config struct {
 	// external connectivity when ExternalNetViaPodVM is enabled. If not set,
 	// falls back to SubnetID (may cause asymmetric routing - see issue #2276).
 	SecondarySubnetID string
+	// EnableAcceleratedNetworking enables SR-IOV on all NICs attached to the
+	// peer-pod VM. Requires a VM size that supports accelerated networking.
+	// See https://learn.microsoft.com/en-us/azure/virtual-network/accelerated-networking-overview
+	EnableAcceleratedNetworking bool
 }
 
 func (c Config) Redact() Config {

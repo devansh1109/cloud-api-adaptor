@@ -281,8 +281,9 @@ func (p *azureProvider) buildNetworkConfig(nicName string) *armcompute.VirtualMa
 			Primary: to.Ptr(true),
 			// DeleteOptionsDelete auto-cleans the NIC on VM deletion.
 			// AWS equivalent: ModifyNetworkInterfaceAttribute(DeleteOnTermination: true).
-			DeleteOption:     to.Ptr(armcompute.DeleteOptionsDelete),
-			IPConfigurations: []*armcompute.VirtualMachineNetworkInterfaceIPConfiguration{&ipConfig},
+			DeleteOption:                to.Ptr(armcompute.DeleteOptionsDelete),
+			IPConfigurations:            []*armcompute.VirtualMachineNetworkInterfaceIPConfiguration{&ipConfig},
+			EnableAcceleratedNetworking: to.Ptr(p.serviceConfig.EnableAcceleratedNetworking),
 		},
 	}
 
@@ -332,8 +333,9 @@ func (p *azureProvider) buildSingleNetworkConfig(nicName string, isPrimary bool,
 			Primary: to.Ptr(isPrimary),
 			// Auto-delete NIC on VM termination — equivalent to AWS
 			// ModifyNetworkInterfaceAttribute(DeleteOnTermination: true).
-			DeleteOption:     to.Ptr(armcompute.DeleteOptionsDelete),
-			IPConfigurations: []*armcompute.VirtualMachineNetworkInterfaceIPConfiguration{&ipConfig},
+			DeleteOption:                to.Ptr(armcompute.DeleteOptionsDelete),
+			IPConfigurations:            []*armcompute.VirtualMachineNetworkInterfaceIPConfiguration{&ipConfig},
+			EnableAcceleratedNetworking: to.Ptr(p.serviceConfig.EnableAcceleratedNetworking),
 		},
 	}
 

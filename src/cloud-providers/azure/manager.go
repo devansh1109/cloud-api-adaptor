@@ -33,6 +33,7 @@ func (*Manager) ParseCmd(flags *flag.FlagSet) {
 	reg.StringWithEnv(&azurecfg.Zone, "zone", "", "", "Zone")
 	reg.StringWithEnv(&azurecfg.SubnetID, "subnetid", "", "AZURE_SUBNET_ID", "Network Subnet Id", provider.Required())
 	reg.StringWithEnv(&azurecfg.SecondarySubnetID, "secondary-subnetid", "", "AZURE_SECONDARY_SUBNET_ID", "Secondary Network Subnet Id for external network access")
+	reg.BoolWithEnv(&azurecfg.EnableAcceleratedNetworking, "enable-accelerated-networking", false, "AZURE_ENABLE_ACCELERATED_NETWORKING", "Enable accelerated networking (SR-IOV) on the Pod VM NICs")
 	reg.StringWithEnv(&azurecfg.SecurityGroupID, "securitygroupid", "", "AZURE_NSG_ID", "Security Group Id")
 	reg.StringWithEnv(&azurecfg.ImageID, "imageid", "", "AZURE_IMAGE_ID", "Image Id", provider.Required())
 	reg.StringWithEnv(&azurecfg.SSHKeyPath, "ssh-key-path", "", "", "Path to SSH public key")

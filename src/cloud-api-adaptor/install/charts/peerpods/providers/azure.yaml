@@ -6,6 +6,10 @@ provider: azure
 
 providerConfigs:
   azure:
+    # Enable accelerated networking (SR-IOV) on the Pod VM NICs
+    # (default: "false")
+    # AZURE_ENABLE_ACCELERATED_NETWORKING: "false"
+
     # Image Id
     # (required)
     AZURE_IMAGE_ID: ""
@@ -30,13 +34,13 @@ providerConfigs:
     # (required)
     AZURE_RESOURCE_GROUP: ""
 
-    # Network Subnet Id
-    # (required)
-    AZURE_SUBNET_ID: ""
-
     # Secondary Network Subnet Id for external network access
     # (default: "")
     # AZURE_SECONDARY_SUBNET_ID: ""
+
+    # Network Subnet Id
+    # (required)
+    AZURE_SUBNET_ID: ""
 
     # Subscription ID
     # (required)
